@@ -52,8 +52,6 @@ steps:
     displayName: Convert to deploy source
 
     - bash: 
-        #sfdx scanner:run --target=convert --format=json --outfile=scanner_results --normalize-severity --category "Security,Design,Best Practices" --severity-threshold=1
-        #sfdx scanner:run --target=convert --format=json --outfile=scanner_results --normalize-severity --category "Security,Design,Best Practices" --severity-threshold=1
         sfdx scanner:run --target=convert --format=json --outfile= . --normalize-severity --category "Security,Design,Best Practices"
     displayName: Run PMD Scanner       
     - bash:     
