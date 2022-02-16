@@ -1,0 +1,63 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+trigger:
+    batch: "true"
+    branches:
+      include:
+        - develop
+        - master
+    paths:
+      exclude:
+        - README.md
+        - azure-pipelines.yml
+  pr:
+    autoCancel: "true"
+    branches:
+      include:
+        - develop
+        - master
+    paths:
+      exclude:
+        - README.md
+jobs:
+#Deploy master to SIT
+- job: DEVDeploy
+condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+steps:
+    - task: NodeTool@0
+    inputs:
+        versionSpec: '>=14.6.0'
+        checkLatest: true
+    - bash: 
+        npm install sfdx-cli --global
+    displayName: Install Salesforce CLI
+    - bash: 
+        sfdx plugins:install sfdx-git-delta
+    displayName: Install Salesforce Git Delta
+    - bash: 
+        sfdx sgd:source:delta --to HEAD --from HEAD^ --output .
+    displayName: Get Commit Delta Components
+    - bash: 
+        sfdx plugins:install @salesforce/sfdx-scanner
+    displayName: Install cli scanner     
+    - bash: 
+        # sfdx force:auth:jwt:grant --clientid $(ClientId) --jwtkeyfile assets/server.key --username $(Username) --setdefaultdevhubusername -a my-hub-org
+        sfdx force:auth:jwt:grant --clientid $(salesforceDevOrgClientId) --jwtkeyfile ./build/server.key --username $(salesforceDevOrgUserName) --instanceurl $(salesforceDevOrgInstanceURL) -a devOrg
+    displayName: Authorize salesforce org
+    # we need to convert the source into mdapi format to run the pmd scanner on the converted files 
+    - bash: 
+        sfdx force:source:convert --manifest=package/package.xml  --outputdir=convert
+    displayName: Convert to deploy source
+
+    - bash: 
+        #sfdx scanner:run --target=convert --format=json --outfile=scanner_results --normalize-severity --category "Security,Design,Best Practices" --severity-threshold=1
+        sfdx scanner:run --target=convert --format=json --outfile= . --normalize-severity --category "Security,Design,Best Practices"
+    displayName: Run PMD Scanner       
+    - bash:     
+        sfdx force:mdapi:deploy -l RunLocalTests -d convert -u $(salesforceDevOrgUserName) -w 10
+    displayName: Deploy source code
+    - bash: 
+        sfdx force:mdapi:deploy:report --verbose
+    displayName: display results
