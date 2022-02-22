@@ -1,13 +1,18 @@
 {
   "orgName": "Demo company",
+  "country": "US",
   "edition": "Developer",
-  "features": ["EnableSetPasswordInApi"],
+  "description": "Scratch Org for Azure Pipelines Demo",
+  "hasSampleData": false,
+  "language": "en_US",
+  "features": ["Communities", "PartnerCommunity", "CPQ", "B2BCommerce", "StateAndCountryPicklist", "EnableSetPasswordInApi"],
   "settings": {
-    "lightningExperienceSettings": {
-      "enableS1DesktopEnabled": true
+    "accountSettings": {
+      "enableAccountTeams": true
     },
     "mobileSettings": {
       "enableS1EncryptedStoragePref2": false
     }
   }
 }
+
