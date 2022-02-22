@@ -41,8 +41,7 @@ jobs:
     - bash: 
         sfdx force:auth:jwt:grant --clientid $(salesforceDevOrgClientId) --jwtkeyfile ./build/server.key --username $(salesforceDevOrgUserName) --instanceurl $(salesforceDevOrgInstanceURL) -a devOrg
       displayName: Authorize salesforce org
-    - bash: 
-    #cahnged output directory to src
+    - bash: #cahnged output directory to src
         sfdx force:source:convert --manifest=package/package.xml  --outputdir=src
       displayName: Convert to deploy source
     - bash:
