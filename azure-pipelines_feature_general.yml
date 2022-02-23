@@ -31,6 +31,10 @@ pool:
 
 # each stage has a condition - it will be skipped if the condition is not achieved. The conditions were already calculated before.
 
+## build/pipeline run naming format 
+name: $(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+
 stages:
 - stage: BU01
   jobs:
@@ -60,13 +64,13 @@ stages:
       - task: GenerateDelta_PR@0
         condition: eq(variables.isPR2Develop, true)      
       - bash: 
-          sfdx sgd:source:delta --to HEAD --from HEAD^ --output .
+          sfdx sgd:source:delta --to System.PullRequest.TargetBranch --from System.PullRequest.SourceBranch --output .
         displayName: Get Feature Commit Delta Components        
       - task: AuthorizeJWT@0              
       - bash: 
           sfdx force:auth:jwt:grant --clientid $(salesforceDevOrgClientId) --jwtkeyfile ./build/server.key --username $(salesforceDevOrgUserName) --instanceurl $(salesforceDevOrgInstanceURL) -a devOrg
         displayName: Authorize salesforce org
-      - bash: #cahnged output directory to src
+      - bash: #changed output directory to src
           sfdx force:source:convert --manifest=package/package.xml  --outputdir=src
         displayName: Convert to deploy source
       - task: SCANNER_RUN@0                      
