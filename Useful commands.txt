@@ -17,3 +17,6 @@ sfdx force:org:open -u DevOpsOrgDemoSO
 - bash:
     sfdx force:org:delete -u CI -p
   displayName: "Delete Scratch Org"
+  
+  ## build/pipeline run naming format 
+name: $(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
