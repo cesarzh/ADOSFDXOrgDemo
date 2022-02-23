@@ -18,5 +18,6 @@ sfdx force:org:open -u DevOpsOrgDemoSO
     sfdx force:org:delete -u CI -p
   displayName: "Delete Scratch Org"
   
-  ## build/pipeline run naming format 
-name: $(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+git config --get remote.origin.url
+git config --global credential.helper cache
