@@ -1,0 +1,85 @@
+# List of branches listenings to pushes
+trigger:
+  batch: "true"
+  branches:
+    include:
+      - develop
+      - feature*
+  paths:
+    exclude:
+      - README.md
+      - azure-pipelines.yml
+# Executing pipeline on pull requests
+pr:
+  branches:
+    include:
+      - '*'      
+# Variables being defined before, only to facilitate reading of the yaml
+variables:
+- group: 'PIPELINE_VARS'
+- name: isFeature
+  value: $[startsWith(variables['Build.SourceBranch'], 'refs/heads/feature')]
+- name: isPR2Develop
+  value: $[eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/develop')]
+- name: isDevelop
+  value: $[eq(variables['Build.SourceBranch'], 'refs/heads/develop')]
+- name: isMain
+  value: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+
+pool:
+  vmImage: ubuntu-latest      
+
+# each stage has a condition - it will be skipped if the condition is not achieved. The conditions were already calculated before.
+
+stages:
+- stage: BU01
+  jobs:
+  #Deploy develop to DEV
+  - job: BUILD_DEPLOY
+    steps:
+      - task: SFDXToolsSetup@0
+        inputs:
+          versionSpec: '>=14.6.0'
+          checkLatest: true
+      - bash: 
+          npm install sfdx-cli --global
+        displayName: Install Salesforce CLI
+      - bash: 
+          echo 'y' | sfdx plugins:install sfdx-git-delta
+        displayName: Install Salesforce Git Delta
+      - bash: 
+          sfdx plugins:install @salesforce/sfdx-scanner
+        displayName: Install Cli scanner
+        #if feature - push each commit
+      - task: GenerateDelta_FEATURE@0
+        condition: eq(variables.isFeature, true)      
+      - bash: 
+          sfdx sgd:source:delta --to HEAD --from HEAD^ --output .
+        displayName: Get Feature Commit Delta Components
+        #if PR - generate delta between 2 branches
+      - task: GenerateDelta_PR@0
+        condition: eq(variables.isPR2Develop, true)      
+      - bash: 
+          sfdx sgd:source:delta --to HEAD --from HEAD^ --output .
+        displayName: Get Feature Commit Delta Components        
+      - task: AuthorizeJWT@0              
+      - bash: 
+          sfdx force:auth:jwt:grant --clientid $(salesforceDevOrgClientId) --jwtkeyfile ./build/server.key --username $(salesforceDevOrgUserName) --instanceurl $(salesforceDevOrgInstanceURL) -a devOrg
+        displayName: Authorize salesforce org
+      - bash: #cahnged output directory to src
+          sfdx force:source:convert --manifest=package/package.xml  --outputdir=src
+        displayName: Convert to deploy source
+      - task: SCANNER_RUN@0                      
+      - bash:
+          mkdir pmdScanner 
+        displayName: create folder for storing PMD scanner results
+      - bash: 
+          sfdx scanner:run --target src --format junit --outputfile=pmdScanner --normalize-severity --category "Security,Design,Best Practices" --severity-threshold=1
+        displayName: Run PMD Scanner
+      - task: Deploy_AND_REPORT@0                              
+      - bash: 
+          sfdx force:mdapi:deploy -l RunLocalTests -d src -u $(salesforceDevOrgUserName) -w 10
+        displayName: Deploy source code
+      - bash: 
+          sfdx force:mdapi:deploy:report --verbose -u $(salesforceDevOrgUserName)
+        displayName: Report on source code deployment      
