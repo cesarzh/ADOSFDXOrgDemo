@@ -1,0 +1,48 @@
+trigger:
+  batch: "true"
+  branches:
+    include:
+      - feature*
+  paths:
+    exclude:
+      - README.md
+      - azure-pipelines.yml
+jobs:
+#Deploy develop to DEV
+- job: DEVDeploy
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/feature*'))
+  steps:
+    - task: NodeToolsSetup@0
+      inputs:
+        versionSpec: '>=14.6.0'
+        checkLatest: true
+    - bash: 
+        npm install sfdx-cli --global
+      displayName: Install Salesforce CLI
+    - bash: 
+        echo 'y' | sfdx plugins:install sfdx-git-delta
+      displayName: Install Salesforce Git Delta
+    - bash: 
+        sfdx plugins:install @salesforce/sfdx-scanner
+      displayName: Install Cli scanner      
+    - bash: 
+        sfdx sgd:source:delta --to HEAD --from HEAD^ --output .
+      displayName: Get Commit Delta Components
+    - bash: 
+        sfdx force:auth:jwt:grant --clientid $(salesforceDevOrgClientId) --jwtkeyfile ./build/server.key --username $(salesforceDevOrgUserName) --instanceurl $(salesforceDevOrgInstanceURL) -a devOrg
+      displayName: Authorize salesforce org
+    - bash: #cahnged output directory to src
+        sfdx force:source:convert --manifest=package/package.xml  --outputdir=src
+      displayName: Convert to deploy source
+    - bash:
+       mkdir pmdScanner 
+      displayName: create folder for storing PMD scanner results
+    - bash: 
+        sfdx scanner:run --target src --format junit --outputfile=pmdScanner --normalize-severity --category "Security,Design,Best Practices" --severity-threshold=1
+      displayName: Run PMD Scanner
+    - bash: 
+        sfdx force:mdapi:deploy -l RunLocalTests -d src -u $(salesforceDevOrgUserName) -w 10
+      displayName: Deploy source code
+    - bash: 
+        sfdx force:mdapi:deploy:report --verbose -u $(salesforceDevOrgUserName)
+      displayName: Report on source code deployment      
